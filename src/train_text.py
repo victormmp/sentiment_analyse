@@ -1,6 +1,7 @@
 import json
 from os.path import join
 from collections import Counter
+import os
 
 import click
 import pandas as pd
@@ -53,13 +54,19 @@ click.echo(f'Train size {X_train.shape[0]} - Test size {X_test.shape[0]}')
 #           TOKENIZING TEXT                                             #
 #########################################################################
 
-click.echo('Generating word map')
-tk = TextTokenizer(X_train, "message", use_gpu=True)
+if os.path.isfile('word_map.json'):
+    click.secho("Loading word map from word_map.json file", fg='green')
+    with open('word_map.json') as fp:
+        map = json.load(fp)
+        tk = TextTokenizer().load(map)
+else:
+    click.echo('Generating word map')
+    tk = TextTokenizer(X_train, "message", use_gpu=True)
 
-file_name = 'word_map.json'
-with open(file_name, 'w') as fp:
-    click.echo(f'Saving a copy of the word map generated in {file_name}')
-    json.dump(tk.map, fp)
+    file_name = 'word_map.json'
+    with open(file_name, 'w') as fp:
+        click.echo(f'Saving a copy of the word map generated in {file_name}')
+        json.dump(tk.map, fp)
 
 click.echo(f'Tokenizing datasets')
 
@@ -92,7 +99,7 @@ X_test = X_test.fillna(0)
 
 click.echo(f"Applying PCA")
 
-pca = PCA(n_components=0.9)
+pca = PCA(n_components=0.95)
 
 pca.fit(X_train)
 n_components = min(2, pca.n_components_)
@@ -118,16 +125,17 @@ model = MLP(n_components)
 model.to(device)
 optimizer = Adam(model.parameters(), lr=0.001)
 loss_function = nn.BCELoss()
+# loss_function = nn.CrossEntropyLoss()
 
-pipeline = Pipeline()
+pipeline = Pipeline(epochs=200)
 
 click.echo(f"Initiating training pipeline")
 
-X_train_torch = torch.from_numpy(X_train).to(device)
-y_train_torch = torch.from_numpy(y_train.to_numpy()).to(device)
+X_train_torch = torch.from_numpy(X_train).float().to(device)
+y_train_torch = torch.from_numpy(y_train.to_numpy()).float().to(device)
 
-X_test_torch = torch.from_numpy(X_test).to(device)
-y_test_torch = torch.from_numpy(y_test.to_numpy()).to(device)
+X_test_torch = torch.from_numpy(X_test).float().to(device)
+y_test_torch = torch.from_numpy(y_test.to_numpy()).float().to(device)
 
 pipeline.train(
     model=model,
@@ -145,17 +153,38 @@ torch.save(model.state_dict(), join(".", "src", "models", "model_1.pt"))
 #       PLOT LOSSES                                                     #
 #########################################################################
 
-plt.figure()
 fig, ax1 = plt.subplots(figsize=(15, 10))
 ax1.plot(pipeline.train_losses, label='train')
 ax1.plot(pipeline.validation_losses, label='validation')
 lines, labels = ax1.get_legend_handles_labels()
 ax1.legend(lines, labels, loc='best')
 ax1.set(title='Loss')
-plt.show()
+# plt.show()
 
 plt.savefig("training_loss.png")
 
+plt.close('all')
+
+
+fig, ax1 = plt.subplots(figsize=(15, 10))
+ax1.plot(pipeline.f1_score_validation, label='F1 on validation')
+lines, labels = ax1.get_legend_handles_labels()
+ax1.legend(lines, labels, loc='best')
+ax1.set(title='F1 on Validation')
+# plt.show()
+
+plt.savefig("validation_f1.png")
+plt.close('all')
+
+
+fig, ax1 = plt.subplots(figsize=(15, 10))
+ax1.plot(pipeline.f1_score_validation, label='Accuracy on validation')
+lines, labels = ax1.get_legend_handles_labels()
+ax1.legend(lines, labels, loc='best')
+ax1.set(title='Accuracy on Validation')
+# plt.show()
+
+plt.savefig("validation_acc.png")
 plt.close('all')
 
 
@@ -163,9 +192,11 @@ plt.close('all')
 #       CALCULATE ON TEST DATA                                          #
 #########################################################################
 
-pred = model(X_test_torch)
+with torch.no_grad():
+    pred = model(X_test_torch)
+    y_pred_bin = [1 if d > 0.5 else 0 for d in pred.squeeze().cpu().numpy()]
 
-score = f1_score(y_test_torch, pred)
+score = f1_score(y_test_torch.cpu().numpy(), y_pred_bin, average='weighted')
 
 
-print(f"F1 score on test data: {score}")
+click.secho(f"F1 score on test data: {score}", fg='green')

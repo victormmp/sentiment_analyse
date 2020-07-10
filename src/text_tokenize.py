@@ -1,7 +1,7 @@
 import json
 from collections import Counter
 from os.path import join
-from typing import List, AnyStr, Union
+from typing import List, AnyStr, Union, Dict
 
 import click
 import numpy as np
@@ -18,7 +18,7 @@ class TextTokenizer:
 
     def __init__(
             self,
-            data: Union[pd.DataFrame, str],
+            data: Union[pd.DataFrame, str] = None,
             column_name: str = None,
             n_tokens: int = 100,
             use_gpu: bool = False
@@ -38,23 +38,25 @@ class TextTokenizer:
             Allow GPU use for spaCy package.
         """
 
-        self.map = {}
-        self.n_tokens = n_tokens
+        if data:
 
-        if use_gpu:
-            click.secho("Using GPU for spacy.", fg='yellow')
-            spacy.prefer_gpu()
+            self.map: Dict = {}
+            self.n_tokens = n_tokens
 
-        self.nlp = spacy.load("pt_core_news_sm")
-        words = []
-        if isinstance(data, pd.DataFrame):
-            words = self._from_df(data, column_name)
-        elif isinstance(data, str):
-            words = self._from_string(data)
-        else:
-            raise ValueError(f"Not recognized type {type(data)}.")
+            if use_gpu:
+                click.secho("Using GPU for spacy.", fg='yellow')
+                spacy.prefer_gpu()
 
-        self.fit(words)
+            self.nlp = spacy.load("pt_core_news_sm")
+            words = []
+            if isinstance(data, pd.DataFrame):
+                words = self._from_df(data, column_name)
+            elif isinstance(data, str):
+                words = self._from_string(data)
+            else:
+                raise ValueError(f"Not recognized type {type(data)}.")
+
+            self.fit(words)
 
     def clean_string(self, data: str) -> List[AnyStr]:
         """
@@ -158,6 +160,12 @@ class TextTokenizer:
             The respective token value, according th the mapping.
         """
         return self.map.get(ud.unidecode(word), 0)
+
+    def load(self, map: Dict):
+        self.map = map
+        self.n_tokens = len(map)
+
+        return self
 
 
 if __name__ == '__main__':
