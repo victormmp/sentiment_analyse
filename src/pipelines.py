@@ -41,7 +41,7 @@ class Pipeline:
 
                 with torch.no_grad():
                     pred = model(X_train[test_index, :])
-                    loss = loss_function(pred, y_train[test_index])
+                    loss = loss_function(pred.squeeze(), y_train[test_index])
                     test_loss = loss.item()
                     test_losses.append(test_loss)
 

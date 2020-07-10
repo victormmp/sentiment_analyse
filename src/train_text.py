@@ -73,7 +73,7 @@ sparse_columns = [k for k in range(tk.n_tokens)]
 new_dataset = []
 with click.progressbar(X_train.iterrows(), length=X_train.shape[0], label="Generating sparse train dataset") as bar:
     for index, row in bar:
-        new_dataset += dict(Counter(row['message']))
+        new_dataset += [dict(Counter(row['message']))]
 
 X_train = pd.DataFrame(new_dataset, columns=sparse_columns)
 
@@ -81,7 +81,7 @@ X_train = pd.DataFrame(new_dataset, columns=sparse_columns)
 new_dataset = []
 with click.progressbar(X_test.iterrows(), length=X_test.shape[0], label="Generating sparse test dataset") as bar:
     for index, row in bar:
-        new_dataset += dict(Counter(row['message']))
+        new_dataset += [dict(Counter(row['message']))]
 
 X_test = pd.DataFrame(new_dataset, columns=sparse_columns)
 
@@ -94,8 +94,10 @@ click.echo(f"Applying PCA")
 
 pca = PCA(n_components=0.9)
 
+pca.fit(X_train)
+n_components = min(2, pca.n_components_)
+pca = PCA(n_components=n_components)
 X_train = pca.fit_transform(X_train)
-n_components = pca.n_components_
 
 click.echo(f'Number of components obtained through PCA for 90% variance: {n_components}')
 
@@ -121,12 +123,18 @@ pipeline = Pipeline()
 
 click.echo(f"Initiating training pipeline")
 
+X_train_torch = torch.from_numpy(X_train).to(device)
+y_train_torch = torch.from_numpy(y_train.to_numpy()).to(device)
+
+X_test_torch = torch.from_numpy(X_test).to(device)
+y_test_torch = torch.from_numpy(y_test.to_numpy()).to(device)
+
 pipeline.train(
     model=model,
     optimizer=optimizer,
     loss_function=loss_function,
-    X_train=X_train,
-    y_train=y_train
+    X_train=X_train_torch,
+    y_train=y_train_torch
 )
 
 click.echo("Save model")
@@ -155,9 +163,9 @@ plt.close('all')
 #       CALCULATE ON TEST DATA                                          #
 #########################################################################
 
-pred = model(X_test)
+pred = model(X_test_torch)
 
-score = f1_score(y_test, pred)
+score = f1_score(y_test_torch, pred)
 
 
 print(f"F1 score on test data: {score}")
