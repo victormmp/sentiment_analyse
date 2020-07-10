@@ -140,7 +140,7 @@ class TextTokenizer:
         count_words = Counter(words)
         word_order = [k for k, v in sorted(count_words.items(), key=lambda item: item[1], reverse=True)]
         click.secho(f"{len(word_order)} words mapped.", fg='green')
-        word_map = zip(word_order[0:self.n_tokens], np.arange(self.n_tokens, 0, -1))
+        word_map = zip(word_order[0:self.n_tokens], np.arange(self.n_tokens-1, 0, -1))
         self.map = {word: int(value) for word, value in word_map}
 
     def get(self, word: str) -> int:
