@@ -309,3 +309,5 @@ dmypy.json
 
 data/
 src/models
+
+latex/

@@ -1,28 +1,24 @@
 import json
-from os.path import join
-from collections import Counter
 import os
+from collections import Counter
+from os.path import join
 
-import click
-import pandas as pd
-from sklearn.model_selection import train_test_split
 from sklearn.decomposition import PCA
-
-from src.text_tokenize import TextTokenizer
-from src.normalizer import Normalizer
-from src.model import MLP
-from src.pipelines import Pipeline
-
-from torch.optim import Adam
+import click
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import torch
 import torch.nn as nn
 
-import torch
-import matplotlib.pyplot as plt
-
 from sklearn.metrics import f1_score, classification_report, roc_auc_score
+from sklearn.model_selection import train_test_split
+from torch.optim import Adam
 
-import numpy as np
-
+from src.model import MLP
+from src.normalizer import Normalizer
+from src.pipelines import Pipeline
+from src.text_tokenize import TextTokenizer
 
 click.echo('Starting script')
 
@@ -72,7 +68,7 @@ if os.path.isfile('word_map.json') and LOAD_WORDMAP:
         tk = TextTokenizer().load(map)
 else:
     click.echo('Generating word map')
-    tk = TextTokenizer(X_train, "message", use_gpu=True)
+    tk = TextTokenizer(X_train, "message", use_gpu=True, n_tokens=200)
 
     file_name = 'word_map.json'
     with open(file_name, 'w') as fp:

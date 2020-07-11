@@ -10,6 +10,18 @@ class Normalizer:
         self.params: List[Dict] = []
 
     def fit(self, data: Union[np.ndarray, pd.DataFrame]):
+        """
+        Considering a base dataset, obtain the parameters used to calculate the normalization.
+
+        Parameters
+        ----------
+        data: Union[np.ndarray, pd.DataFrame]
+            Input data
+
+        Returns
+        -------
+            None.
+        """
 
         is_data_frame = isinstance(data, pd.DataFrame)
 
@@ -19,7 +31,20 @@ class Normalizer:
             else:
                 self.params.append({'mean': np.mean(data[:, c]), 'std': np.std(data[:, c])})
 
-    def transform(self, data):
+    def transform(self, data: Union[np.ndarray, pd.DataFrame]):
+        """
+        Apply normalization calculation upon a data matrix.
+
+        Parameters
+        ----------
+        data: Union[np.ndarray, pd.DataFrame]
+            Input data to be transformec
+
+        Returns
+        -------
+        Union[np.ndarray, pd.DataFrame]:
+            Output transformed matrix.
+        """
         data_trans = data.copy()
 
         is_data_frame = isinstance(data, pd.DataFrame)
@@ -35,7 +60,20 @@ class Normalizer:
 
         return data_trans
 
-    def fit_transform(self, data):
+    def fit_transform(self, data: Union[np.ndarray, pd.DataFrame]):
+        """
+        Fit data and transforms it.
+
+        Parameters
+        ----------
+        data: Union[np.ndarray, pd.DataFrame]
+            Input data matrix.
+
+        Returns
+        -------
+        Union[np.ndarray, pd.DataFrame]:
+            Output transformed matrix.
+        """
         self.fit(data)
 
         return self.transform(data)
