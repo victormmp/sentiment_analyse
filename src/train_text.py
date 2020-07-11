@@ -19,7 +19,7 @@ import torch.nn as nn
 import torch
 import matplotlib.pyplot as plt
 
-from sklearn.metrics import f1_score, classification_report
+from sklearn.metrics import f1_score, classification_report, roc_auc_score
 
 import numpy as np
 
@@ -235,7 +235,8 @@ with torch.no_grad():
     y_pred_bin = [1 if d > class_ratio else 0 for d in pred.squeeze().cpu().numpy()]
 
 score = f1_score(y_test_torch.cpu().numpy(), y_pred_bin, average='weighted')
+auc = roc_auc_score(y_test_torch.cpu().numpy(), y_pred_bin, average='weighted')
 print(classification_report(y_test_torch.cpu().numpy(), y_pred_bin))
 
 
-click.secho(f"F1 score on test data: {score}", fg='green')
+click.secho(f"F1 score on test data: {score} - auc: {auc}", fg='green')
