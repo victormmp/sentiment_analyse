@@ -15,17 +15,22 @@ class Normalizer:
 
         for c in range(data.shape[1]):
             if is_data_frame:
-                self.params.append({'mean': np.mean(data.iloc[:, c]), 'var':np.var(data.iloc[:, c])})
+                self.params.append({'mean': np.mean(data.iloc[:, c]), 'std': np.std(data.iloc[:, c])})
             else:
-                self.params.append({'mean': np.mean(data[:, c]), 'var': np.var(data[:, c])})
+                self.params.append({'mean': np.mean(data[:, c]), 'std': np.std(data[:, c])})
 
     def transform(self, data):
         data_trans = data.copy()
 
+        is_data_frame = isinstance(data, pd.DataFrame)
+
         with click.progressbar(length=np.prod(data.shape), label="Transforming data") as bar:
             for index in range(data.shape[0]):
                 for c in range(data.shape[1]):
-                    data_trans[index, c] = (data[index, c] - self.params[c]["mean"]) / self.params[c]['var']
+                    if is_data_frame:
+                        data_trans.iloc[index, c] = (data.iloc[index, c] - self.params[c]["mean"]) / self.params[c]['std']
+                    else:
+                        data_trans[index, c] = (data[index, c] - self.params[c]["mean"]) / self.params[c]['std']
                     bar.update(1)
 
         return data_trans

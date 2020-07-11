@@ -19,10 +19,14 @@ import torch.nn as nn
 import torch
 import matplotlib.pyplot as plt
 
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, classification_report
+
+import numpy as np
 
 
 click.echo('Starting script')
+
+LOAD_WORDMAP = True
 
 #########################################################################
 #           LOADING DATASET                                             #
@@ -41,11 +45,18 @@ click.echo('Cleaning missing data')
 df["message"] = df["message"].apply(lambda d: "none" if type(d) == float else d)
 click.echo(f"Number of float values {df[df.message.apply(type) == float].shape[0]}")
 
+click.echo(f"Drop empty messages.")
+df = df[df['message'] != 'none']
+
 click.echo('Splitting into train / test data frames')
 X = df.drop(['score'], axis=1)
 y = df["score"]
 
 X_train, X_test, y_train, y_test = train_test_split(X, y)
+
+class_ratio = y_train[y_train == 1].shape[0] / y_train.shape[0]
+
+click.echo(f"Class balance ratio : {class_ratio:0.2f}% of data is class 1.")
 
 click.echo(f'Train size {X_train.shape[0]} - Test size {X_test.shape[0]}')
 
@@ -54,7 +65,7 @@ click.echo(f'Train size {X_train.shape[0]} - Test size {X_test.shape[0]}')
 #           TOKENIZING TEXT                                             #
 #########################################################################
 
-if os.path.isfile('word_map.json'):
+if os.path.isfile('word_map.json') and LOAD_WORDMAP:
     click.secho("Loading word map from word_map.json file", fg='green')
     with open('word_map.json') as fp:
         map = json.load(fp)
@@ -102,11 +113,11 @@ click.echo(f"Applying PCA")
 pca = PCA(n_components=0.95)
 
 pca.fit(X_train)
-n_components = min(2, pca.n_components_)
+n_components = max(2, pca.n_components_)
 pca = PCA(n_components=n_components)
 X_train = pca.fit_transform(X_train)
 
-click.echo(f'Number of components obtained through PCA for 90% variance: {n_components}')
+click.echo(f'Number of components obtained through PCA for 95% variance: {n_components}')
 
 X_test = pca.transform(X_test)
 
@@ -127,7 +138,7 @@ optimizer = Adam(model.parameters(), lr=0.001)
 loss_function = nn.BCELoss()
 # loss_function = nn.CrossEntropyLoss()
 
-pipeline = Pipeline(epochs=200)
+pipeline = Pipeline(epochs=500, validation_size=0.05)
 
 click.echo(f"Initiating training pipeline")
 
@@ -141,7 +152,7 @@ pipeline.train(
     model=model,
     optimizer=optimizer,
     loss_function=loss_function,
-    X_train=X_train_torch,
+    x_train=X_train_torch,
     y_train=y_train_torch
 )
 
@@ -188,15 +199,43 @@ plt.savefig("validation_acc.png")
 plt.close('all')
 
 
+if n_components == 2:
+    fig, ax1 = plt.subplots(figsize=(15, 10))
+    ax1.scatter(X_train[y_train == 0, 0], X_train[y_train == 0, 1], label='bad scores')
+    ax1.scatter(X_train[y_train == 1, 0], X_train[y_train == 1, 1], label='good scores')
+    lines, labels = ax1.get_legend_handles_labels()
+    ax1.legend(lines, labels, loc='best')
+    ax1.set(title='Data distribution')
+    # plt.show()
+
+    x_lab = np.linspace(-5, 5, num=1000)
+    y_lab = np.linspace(-5, 5, num=1000)
+    x1, x2 = np.meshgrid(x_lab, y_lab)
+    x_grid = np.transpose(np.vstack([x1.flatten(), x2.flatten()]))
+
+    with torch.no_grad():
+        x_grid_torch = torch.from_numpy(x_grid).float().to(device)
+        pred = model(x_grid_torch)
+        z = pred.squeeze().cpu().numpy()
+    z = z.reshape([1000, 1000])
+    ax1.contour(x1, x2, z, linewidths=(2.5,))
+
+    plt.savefig("dist.png")
+    plt.close('all')
+
+    del pred
+
+
 #########################################################################
 #       CALCULATE ON TEST DATA                                          #
 #########################################################################
 
 with torch.no_grad():
     pred = model(X_test_torch)
-    y_pred_bin = [1 if d > 0.5 else 0 for d in pred.squeeze().cpu().numpy()]
+    y_pred_bin = [1 if d > class_ratio else 0 for d in pred.squeeze().cpu().numpy()]
 
 score = f1_score(y_test_torch.cpu().numpy(), y_pred_bin, average='weighted')
+print(classification_report(y_test_torch.cpu().numpy(), y_pred_bin))
 
 
 click.secho(f"F1 score on test data: {score}", fg='green')

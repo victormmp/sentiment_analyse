@@ -38,7 +38,7 @@ class TextTokenizer:
             Allow GPU use for spaCy package.
         """
 
-        if data:
+        if data is not None and data.all() is not None and not data.empty:
 
             self.map: Dict = {}
             self.n_tokens = n_tokens
